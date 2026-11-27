@@ -11,7 +11,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
@@ -250,8 +255,19 @@ private fun SettingsScreen(
     nsfw: Boolean, onNsfw: (Boolean) -> Unit,
     loading: Boolean, error: String?, onStart: () -> Unit
 ) {
+    val searchFieldFocusRequester = remember { FocusRequester() }
+
+    // Give the TV remote a predictable starting point whenever settings opens.
+    LaunchedEffect(Unit) {
+        searchFieldFocusRequester.requestFocus()
+    }
+
     Column(
-        Modifier.fillMaxSize().background(Color(0xFF090909)).padding(horizontal = 64.dp, vertical = 34.dp),
+        Modifier.fillMaxSize()
+            .background(Color(0xFF090909))
+            .verticalScroll(rememberScrollState())
+            .focusGroup()
+            .padding(horizontal = 64.dp, vertical = 34.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         Text("ARTFRAME", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -259,7 +275,7 @@ private fun SettingsScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("SEARCH TERM", color = Color.LightGray, fontSize = 12.sp)
-                InputField(query, onQuery, "e.g. dark abstract")
+                InputField(query, onQuery, "e.g. dark abstract", searchFieldFocusRequester)
                 Text("WALLHAVEN API KEY", color = Color.LightGray, fontSize = 12.sp)
                 InputField(apiKey, onApiKey, "Paste your API key")
                 Text("Generate a key at wallhaven.cc/settings/account", color = Color.Gray, fontSize = 11.sp)
@@ -297,7 +313,13 @@ private fun SettingsScreen(
 }
 
 @Composable
-private fun InputField(value: String, onValue: (String) -> Unit, hint: String) {
+private fun InputField(
+    value: String,
+    onValue: (String) -> Unit,
+    hint: String,
+    focusRequester: FocusRequester? = null
+) {
+    var isFocused by remember { mutableStateOf(false) }
     BasicTextField(
         value = value,
         onValueChange = onValue,
@@ -305,6 +327,13 @@ private fun InputField(value: String, onValue: (String) -> Unit, hint: String) {
         textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
         modifier = Modifier.fillMaxWidth()
             .background(Color(0xFF242424), RoundedCornerShape(8.dp))
+            .border(
+                width = if (isFocused) 2.dp else 1.dp,
+                color = if (isFocused) Color(0xFF90CAF9) else Color(0xFF555555),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged { isFocused = it.isFocused }
             .padding(horizontal = 14.dp, vertical = 13.dp),
         decorationBox = { inner ->
             Box {
