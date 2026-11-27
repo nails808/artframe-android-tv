@@ -105,8 +105,8 @@ private fun ArtframeApp(imageLoader: ImageLoader) {
                 val result = withContext(Dispatchers.IO) {
                     client.search(
                         query, apiKey, sfw, sketchy, nsfw,
-                        targetWidth = maxOf(1920, windowManager.defaultDisplay.mode.physicalWidth),
-                        targetHeight = maxOf(1080, windowManager.defaultDisplay.mode.physicalHeight)
+                        targetWidth = maxOf(1920, context.resources.displayMetrics.widthPixels),
+                        targetHeight = maxOf(1080, context.resources.displayMetrics.heightPixels)
                     )
                 }
                 wallpapers = result.wallpapers
