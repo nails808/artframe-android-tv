@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
                 android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
             )
         val imageLoader = ImageLoader.Builder(this)
-            .memoryCache { MemoryCache.Builder().maxSizePercent(this, 0.20).build() }
+            .memoryCache { MemoryCache.Builder().maxSizePercent(this@MainActivity, 0.20).build() }
             .diskCache {
                 DiskCache.Builder()
                     .directory(File(cacheDir, "wallhaven_images"))
@@ -97,7 +97,7 @@ private fun ArtframeApp(imageLoader: ImageLoader) {
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    client.search(query, apiKey, sfw, sketchy, nsfw)
+                    client.search(\n                        query, apiKey, sfw, sketchy, nsfw,\n                        targetWidth = maxOf(1920, windowManager.defaultDisplay.mode.physicalWidth),\n                        targetHeight = maxOf(1080, windowManager.defaultDisplay.mode.physicalHeight)\n                    )
                 }
                 wallpapers = result.wallpapers
                 index = 0
