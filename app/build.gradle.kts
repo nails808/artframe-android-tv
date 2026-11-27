@@ -69,6 +69,7 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     implementation("com.squareup.okhttp3:okhttp:5.1.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha07")
+    implementation("com.google.errorprone:error_prone_annotations:2.41.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
