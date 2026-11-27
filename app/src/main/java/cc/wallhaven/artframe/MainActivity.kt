@@ -27,6 +27,8 @@ import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.CachePolicy
+import coil3.request.crossfade
+import okio.Path.Companion.toOkioPath
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import kotlinx.coroutines.Dispatchers
@@ -50,7 +52,7 @@ class MainActivity : ComponentActivity() {
             .memoryCache { MemoryCache.Builder().maxSizePercent(this@MainActivity, 0.20).build() }
             .diskCache {
                 DiskCache.Builder()
-                    .directory(File(cacheDir, "wallhaven_images"))
+                    .directory(File(cacheDir, "wallhaven_images").toOkioPath())
                     .maxSizeBytes(2L * 1024L * 1024L * 1024L)
                     .build()
             }
