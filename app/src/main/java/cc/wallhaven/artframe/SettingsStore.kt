@@ -20,9 +20,18 @@ class SettingsStore(context: Context) {
     }
     private val prefs by lazy { app.getSharedPreferences("artframe_settings", Context.MODE_PRIVATE) }
 
+    // A user-entered key always wins. Otherwise, fall back to the key supplied
+    // by the GitHub Actions environment at build time (if one was configured).
     var apiKey: String
-        get() = runCatching { secure.getString("wallhaven_api_key", "").orEmpty() }.getOrDefault("")
-        set(value) { secure.edit().putString("wallhaven_api_key", value.trim()).apply() }
+        get() {
+            val savedKey = runCatching {
+                secure.getString("wallhaven_api_key", "").orEmpty().trim()
+            }.getOrDefault("")
+            return savedKey.ifBlank { BuildConfig.DEFAULT_WALLHAVEN_API_KEY.trim() }
+        }
+        set(value) {
+            secure.edit().putString("wallhaven_api_key", value.trim()).apply()
+        }
 
     var query: String
         get() = prefs.getString("query", "abstract").orEmpty()
