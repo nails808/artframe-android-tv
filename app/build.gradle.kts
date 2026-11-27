@@ -14,6 +14,13 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
+
+        // The API key is injected at build time from the GitHub environment secret.
+        // An empty value keeps local builds fully functional with a user-supplied key.
+        val defaultApiKey = providers.environmentVariable("APIKEY").orNull.orEmpty()
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+        buildConfigField("String", "DEFAULT_WALLHAVEN_API_KEY", "\"$defaultApiKey\"")
     }
 
     buildTypes {
