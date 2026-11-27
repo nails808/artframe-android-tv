@@ -5,6 +5,11 @@ import android.view.KeyEvent as AndroidKeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
@@ -27,7 +32,6 @@ import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.CachePolicy
-import coil3.request.crossfade
 import okio.Path.Companion.toOkioPath
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
@@ -99,7 +103,11 @@ private fun ArtframeApp(imageLoader: ImageLoader) {
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    client.search(\n                        query, apiKey, sfw, sketchy, nsfw,\n                        targetWidth = maxOf(1920, windowManager.defaultDisplay.mode.physicalWidth),\n                        targetHeight = maxOf(1080, windowManager.defaultDisplay.mode.physicalHeight)\n                    )
+                    client.search(
+                        query, apiKey, sfw, sketchy, nsfw,
+                        targetWidth = maxOf(1920, windowManager.defaultDisplay.mode.physicalWidth),
+                        targetHeight = maxOf(1080, windowManager.defaultDisplay.mode.physicalHeight)
+                    )
                 }
                 wallpapers = result.wallpapers
                 index = 0
@@ -194,18 +202,26 @@ private fun ArtframeApp(imageLoader: ImageLoader) {
                     onStart = { search() }
                 )
             } else if (current != null) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(current.path)
-                        .crossfade(1200)
-                        .diskCachePolicy(CachePolicy.ENABLED)
-                        .memoryCachePolicy(CachePolicy.ENABLED)
-                        .build(),
-                    imageLoader = imageLoader,
-                    contentDescription = "Wallhaven wallpaper ${current.id}",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                )
+                AnimatedContent(
+                    targetState = current.path,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(1200)) togetherWith
+                            fadeOut(animationSpec = tween(1200))
+                    },
+                    label = "wallpaperCrossfade"
+                ) { imagePath ->
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(imagePath)
+                            .diskCachePolicy(CachePolicy.ENABLED)
+                            .memoryCachePolicy(CachePolicy.ENABLED)
+                            .build(),
+                        imageLoader = imageLoader,
+                        contentDescription = "Wallhaven wallpaper ${current.id}",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                    )
+                }
                 if (showInfo) {
                     Column(
                         Modifier.align(Alignment.BottomStart)
