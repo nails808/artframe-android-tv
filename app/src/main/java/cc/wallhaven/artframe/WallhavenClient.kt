@@ -6,7 +6,8 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import kotlin.math.abs\nimport kotlin.math.ln
+import kotlin.math.abs
+import kotlin.math.ln
 
 class WallhavenClient {
     private val http = OkHttpClient.Builder()
@@ -84,7 +85,14 @@ class WallhavenClient {
                         )
                     )
                 }
-            }.sortedBy { wallpaper ->\n                abs(wallpaper.ratio - 16.0 / 9.0) * 100.0 +\n                    abs(ln(wallpaper.width.toDouble() / targetWidth)) +\n                    abs(ln(wallpaper.height.toDouble() / targetHeight))\n            }
+            }.sortedBy { wallpaper ->
+                abs(wallpaper.ratio - 16.0 / 9.0) * 100.0 +
+                    abs(ln(wallpaper.width.toDouble() / targetWidth)) +
+                    abs(ln(wallpaper.height.toDouble() / targetHeight))
+            }
+            if (items.isEmpty() && (targetWidth > 1920 || targetHeight > 1080)) {
+                return search(query, apiKey, includeSfw, includeSketchy, includeNsfw, page, 1920, 1080)
+            }
             val meta = root.optJSONObject("meta")
             return SearchPage(items, meta?.optInt("total", items.size) ?: items.size, page)
         }
