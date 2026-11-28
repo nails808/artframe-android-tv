@@ -52,4 +52,16 @@ class SettingsStore(context: Context) {
     var includeNsfw: Boolean
         get() = prefs.getBoolean("nsfw", false)
         set(value) { prefs.edit().putBoolean("nsfw", value).apply() }
+
+    var minimumSize: String
+        get() = prefs.getString("minimum_size", "1920x1080").orEmpty()
+        set(value) { prefs.edit().putString("minimum_size", value).apply() }
+
+    var preferredDisplay: String
+        get() = prefs.getString("preferred_display", "Auto (TV resolution)").orEmpty()
+        set(value) { prefs.edit().putString("preferred_display", value).apply() }
+
+    var aspectRatio: String
+        get() = prefs.getString("aspect_ratio", "16:9").orEmpty()
+        set(value) { prefs.edit().putString("aspect_ratio", value).apply() }
 }

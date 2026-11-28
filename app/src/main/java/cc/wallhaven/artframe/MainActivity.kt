@@ -3,351 +3,66 @@ package cc.wallhaven.artframe
 import android.os.Bundle
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
+import androidx.activity.compose.setContent
+import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.*
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil3.ImageLoader
+import androidx.compose.ui.text.input.*
+import androidx.compose.ui.unit.*
+import coil3.*
 import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
-import coil3.request.CachePolicy
-import okio.Path.Companion.toOkioPath
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import coil3.request.*
 import java.io.File
+import kotlinx.coroutines.*
+import okio.Path.Companion.toOkioPath
+
+private val Navy = Color(0xFF080B20); private val Panel = Color(0xEE17204A); private val Purple = Color(0xFF9470FF); private val Blue = Color(0xFF55C7FF); private val Muted = Color(0xFFBBC4E5); private val Error = Color(0xFFFF92A2)
+private enum class Step { KEY, QUERY, CATEGORIES, DISPLAY, REVIEW }
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        window.decorView.systemUiVisibility = (
-            android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
-                android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-                android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            )
-        val imageLoader = ImageLoader.Builder(this)
-            .memoryCache { MemoryCache.Builder().maxSizePercent(this@MainActivity, 0.20).build() }
-            .diskCache {
-                DiskCache.Builder()
-                    .directory(File(cacheDir, "wallhaven_images").toOkioPath())
-                    .maxSizeBytes(2L * 1024L * 1024L * 1024L)
-                    .build()
-            }
-            .build()
-        setContent { ArtframeApp(imageLoader) }
-    }
+ override fun onCreate(state: Bundle?) { super.onCreate(state)
+  window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+  val loader = ImageLoader.Builder(this).memoryCache { MemoryCache.Builder().maxSizePercent(this@MainActivity,.20).build() }.diskCache { DiskCache.Builder().directory(File(cacheDir,"wallhaven_images").toOkioPath()).maxSizeBytes(2L*1024*1024*1024).build() }.build()
+  setContent { Artframe(loader) }
+ }
 }
 
-@Composable
-private fun ArtframeApp(imageLoader: ImageLoader) {
-    val context = LocalContext.current
-    val store = remember { SettingsStore(context) }
-    val client = remember { WallhavenClient() }
-    val scope = rememberCoroutineScope()
-
-    var query by remember { mutableStateOf(store.query) }
-    var apiKey by remember { mutableStateOf(store.apiKey) }
-    var duration by remember { mutableIntStateOf(store.durationSeconds) }
-    var sfw by remember { mutableStateOf(store.includeSfw) }
-    var sketchy by remember { mutableStateOf(store.includeSketchy) }
-    var nsfw by remember { mutableStateOf(store.includeNsfw) }
-    var wallpapers by remember { mutableStateOf<List<Wallpaper>>(emptyList()) }
-    var index by remember { mutableIntStateOf(0) }
-    var showSettings by remember { mutableStateOf(true) }
-    var showInfo by remember { mutableStateOf(false) }
-    var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    val current = wallpapers.getOrNull(index)
-
-    fun persist() {
-        store.apiKey = apiKey
-        store.query = query
-        store.durationSeconds = duration
-        store.includeSfw = sfw
-        store.includeSketchy = sketchy
-        store.includeNsfw = nsfw
-    }
-
-    fun search() {
-        persist()
-        loading = true
-        error = null
-        scope.launch {
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    client.search(
-                        query, apiKey, sfw, sketchy, nsfw,
-                        targetWidth = maxOf(1920, context.resources.displayMetrics.widthPixels),
-                        targetHeight = maxOf(1080, context.resources.displayMetrics.heightPixels)
-                    )
-                }
-                wallpapers = result.wallpapers
-                index = 0
-                showSettings = false
-                if (result.wallpapers.isEmpty()) {
-                    error = "No matching 16:9 wallpapers at 1920×1080 or higher. Try another term or broaden your search."
-                    showSettings = true
-                }
-            } catch (t: Throwable) {
-                error = t.message ?: "Unable to search Wallhaven."
-                showSettings = true
-            } finally {
-                loading = false
-            }
-        }
-    }
-
-    // Preload the next original image while the current one is on screen.
-    LaunchedEffect(index, wallpapers) {
-        val next = wallpapers.getOrNull(index + 1)
-        if (next != null) {
-            imageLoader.enqueue(
-                ImageRequest.Builder(context)
-                    .data(next.path)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .build()
-            )
-        }
-    }
-
-    LaunchedEffect(index, wallpapers, showSettings) {
-        if (!showSettings && wallpapers.isNotEmpty()) {
-            delay(duration * 1000L)
-            index = (index + 1) % wallpapers.size
-        }
-    }
-
-    BackHandler(enabled = !showSettings) {
-        showInfo = false
-        showSettings = true
-    }
-
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            background = Color.Black,
-            surface = Color(0xFF171717),
-            primary = Color(0xFFE8E8E8),
-            onBackground = Color.White,
-            onSurface = Color.White
-        )
-    ) {
-        Box(
-            Modifier.fillMaxSize()
-                .background(Color.Black)
-                .onPreviewKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyUp && !showSettings) {
-                        when (event.nativeKeyEvent.keyCode) {
-                            AndroidKeyEvent.KEYCODE_DPAD_LEFT -> {
-                                index = (index - 1 + wallpapers.size) % wallpapers.size
-                                true
-                            }
-                            AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> {
-                                index = (index + 1) % wallpapers.size
-                                true
-                            }
-                            AndroidKeyEvent.KEYCODE_DPAD_CENTER,
-                            AndroidKeyEvent.KEYCODE_ENTER -> {
-                                showInfo = !showInfo
-                                true
-                            }
-                            AndroidKeyEvent.KEYCODE_MENU,
-                            AndroidKeyEvent.KEYCODE_SETTINGS -> {
-                                showSettings = true
-                                true
-                            }
-                            else -> false
-                        }
-                    } else false
-                }
-                .focusable()
-        ) {
-            if (showSettings) {
-                SettingsScreen(
-                    query = query, onQuery = { query = it },
-                    apiKey = apiKey, onApiKey = { apiKey = it },
-                    duration = duration, onDuration = { duration = it.coerceIn(10, 3600) },
-                    sfw = sfw, onSfw = { sfw = it },
-                    sketchy = sketchy, onSketchy = { sketchy = it },
-                    nsfw = nsfw, onNsfw = { nsfw = it },
-                    loading = loading, error = error,
-                    onStart = { search() }
-                )
-            } else if (current != null) {
-                AnimatedContent(
-                    targetState = current.path,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(1200)) togetherWith
-                            fadeOut(animationSpec = tween(1200))
-                    },
-                    label = "wallpaperCrossfade"
-                ) { imagePath ->
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(imagePath)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .memoryCachePolicy(CachePolicy.ENABLED)
-                            .build(),
-                        imageLoader = imageLoader,
-                        contentDescription = "Wallhaven wallpaper ${current.id}",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                    )
-                }
-                if (showInfo) {
-                    Column(
-                        Modifier.align(Alignment.BottomStart)
-                            .fillMaxWidth()
-                            .background(Color(0x99000000))
-                            .padding(horizontal = 32.dp, vertical = 20.dp)
-                    ) {
-                        Text("WALLHAVEN  •  ${current.id}", fontSize = 13.sp, color = Color.LightGray)
-                        Text("${current.width} × ${current.height}  •  ${index + 1} / ${wallpapers.size}", fontSize = 18.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
-            } else {
-                Text("ARTFRAME", color = Color.White, modifier = Modifier.align(Alignment.Center))
-            }
-        }
-    }
+@Composable private fun Artframe(loader: ImageLoader) {
+ val context=LocalContext.current; val store=remember { SettingsStore(context) }; val client=remember { WallhavenClient() }; val scope=rememberCoroutineScope()
+ var splash by remember { mutableStateOf(true) }; var settings by remember { mutableStateOf(true) }; var step by remember { mutableStateOf(Step.KEY) }; var key by remember { mutableStateOf(store.apiKey) }; var query by remember { mutableStateOf(store.query) }; var duration by remember { mutableIntStateOf(store.durationSeconds) }; var sfw by remember { mutableStateOf(store.includeSfw) }; var sketchy by remember { mutableStateOf(store.includeSketchy) }; var nsfw by remember { mutableStateOf(store.includeNsfw) }; var ratio by remember { mutableStateOf(store.aspectRatio) }; var minimum by remember { mutableStateOf(store.minimumSize) }; var preferred by remember { mutableStateOf(store.preferredDisplay) }; var loading by remember { mutableStateOf(false) }; var error by remember { mutableStateOf<String?>(null) }; var wallpapers by remember { mutableStateOf<List<Wallpaper>>(emptyList()) }; var index by remember { mutableIntStateOf(0) }; var info by remember { mutableStateOf(false) }
+ fun save(){ store.apiKey=key;store.query=query;store.durationSeconds=duration;store.includeSfw=sfw;store.includeSketchy=sketchy;store.includeNsfw=nsfw;store.aspectRatio=ratio;store.minimumSize=minimum;store.preferredDisplay=preferred }
+ fun dimensions(text:String)=text.split("x").let{(it.getOrNull(0)?.toIntOrNull()?:1920) to (it.getOrNull(1)?.toIntOrNull()?:1080)}
+ fun start(){ save(); loading=true; error=null; scope.launch { try { val min=dimensions(minimum); val display=if(preferred=="Auto (TV resolution)") context.resources.displayMetrics.widthPixels to context.resources.displayMetrics.heightPixels else dimensions(preferred); val result=withContext(Dispatchers.IO){client.search(query,key,sfw,sketchy,nsfw,targetWidth=maxOf(min.first,display.first),targetHeight=maxOf(min.second,display.second))}; wallpapers=result.wallpapers;index=0;if(result.wallpapers.isEmpty()){error="No matching $ratio wallpapers found. Adjust the setup and try again.";step=Step.REVIEW}else settings=false }catch(t:Throwable){error=t.message?:"Unable to search Wallhaven.";step=Step.REVIEW}finally{loading=false} } }
+ LaunchedEffect(Unit){delay(5000);splash=false}; LaunchedEffect(index,wallpapers){wallpapers.getOrNull(index+1)?.let{loader.enqueue(ImageRequest.Builder(context).data(it.path).diskCachePolicy(CachePolicy.ENABLED).memoryCachePolicy(CachePolicy.ENABLED).build())}}; LaunchedEffect(index,wallpapers,settings){if(!settings&&wallpapers.isNotEmpty()){delay(duration*1000L);index=(index+1)%wallpapers.size}}
+ BackHandler(enabled=!splash&&!settings){info=false;settings=true;step=Step.REVIEW}
+ MaterialTheme(colorScheme=darkColorScheme(background=Navy,surface=Panel,primary=Purple,onBackground=Color.White,onSurface=Color.White)){Box(Modifier.fillMaxSize().background(Navy).onPreviewKeyEvent { e -> if(e.type==KeyEventType.KeyUp&&!splash&&!settings&&wallpapers.isNotEmpty()) when(e.nativeKeyEvent.keyCode){AndroidKeyEvent.KEYCODE_DPAD_LEFT->{index=(index-1+wallpapers.size)%wallpapers.size;true};AndroidKeyEvent.KEYCODE_DPAD_RIGHT->{index=(index+1)%wallpapers.size;true};AndroidKeyEvent.KEYCODE_DPAD_CENTER,AndroidKeyEvent.KEYCODE_ENTER->{info=!info;true};AndroidKeyEvent.KEYCODE_MENU,AndroidKeyEvent.KEYCODE_SETTINGS->{settings=true;step=Step.REVIEW;true};else->false}else false}.focusable()){when{ splash->Splash();settings->Wizard(step,{step=it},key,{key=it;store.apiKey=it},query,{query=it;store.query=it},sfw,{sfw=it;store.includeSfw=it},sketchy,{sketchy=it;store.includeSketchy=it},nsfw,{nsfw=it;store.includeNsfw=it},ratio,{ratio=it;store.aspectRatio=it},minimum,{minimum=it;store.minimumSize=it},preferred,{preferred=it;store.preferredDisplay=it},duration,{duration=it;store.durationSeconds=it},loading,error,::start);else->Gallery(loader,wallpapers,index,info)}}}
 }
 
-@Composable
-private fun SettingsScreen(
-    query: String, onQuery: (String) -> Unit,
-    apiKey: String, onApiKey: (String) -> Unit,
-    duration: Int, onDuration: (Int) -> Unit,
-    sfw: Boolean, onSfw: (Boolean) -> Unit,
-    sketchy: Boolean, onSketchy: (Boolean) -> Unit,
-    nsfw: Boolean, onNsfw: (Boolean) -> Unit,
-    loading: Boolean, error: String?, onStart: () -> Unit
-) {
-    val searchFieldFocusRequester = remember { FocusRequester() }
+@Composable private fun Splash()=Box(Modifier.fillMaxSize().background(Color.Black)){Image(painterResource(R.drawable.walldroid),"ARTFRAME",Modifier.fillMaxSize(),contentScale=ContentScale.Crop);Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color(0xB9000315)))));Column(Modifier.align(Alignment.BottomStart).padding(64.dp)){Text("ARTFRAME",color=Color.White,fontSize=42.sp,fontWeight=FontWeight.Black,letterSpacing=4.sp);Text("A WALLHAVEN ART EXPERIENCE",color=Blue,fontWeight=FontWeight.Bold,letterSpacing=2.sp)}}
+@Composable private fun Gallery(loader:ImageLoader,items:List<Wallpaper>,index:Int,info:Boolean){val context=LocalContext.current;val current=items.getOrNull(index)?:return;Box(Modifier.fillMaxSize()){AnimatedContent(targetState=current.path,transitionSpec={fadeIn(tween(1200)) togetherWith fadeOut(tween(1200))},label="crossfade"){path->AsyncImage(model=ImageRequest.Builder(context).data(path).diskCachePolicy(CachePolicy.ENABLED).memoryCachePolicy(CachePolicy.ENABLED).build(),contentDescription="Wallhaven wallpaper ${current.id}",modifier=Modifier.fillMaxSize(),imageLoader=loader,contentScale=ContentScale.Fit)};if(info)Column(Modifier.fillMaxWidth().align(Alignment.BottomStart).background(Color(0xB9000315)).padding(32.dp)){Text("WALLHAVEN  •  ${current.id}",color=Blue);Text("${current.width} × ${current.height}  •  ${index+1} / ${items.size}",fontSize=18.sp)}}}
 
-    // Give the TV remote a predictable starting point whenever settings opens.
-    LaunchedEffect(Unit) {
-        searchFieldFocusRequester.requestFocus()
-    }
-
-    Column(
-        Modifier.fillMaxSize()
-            .background(Color(0xFF090909))
-            .verticalScroll(rememberScrollState())
-            .focusGroup()
-            .padding(horizontal = 64.dp, vertical = 34.dp),
-        verticalArrangement = Arrangement.spacedBy(13.dp)
-    ) {
-        Text("ARTFRAME", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        Text("WALLHAVEN • DIGITAL ART DISPLAY", fontSize = 12.sp, color = Color.Gray)
-        Row(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("SEARCH TERM", color = Color.LightGray, fontSize = 12.sp)
-                InputField(query, onQuery, "e.g. dark abstract", searchFieldFocusRequester)
-                Text("WALLHAVEN API KEY", color = Color.LightGray, fontSize = 12.sp)
-                InputField(apiKey, onApiKey, "Paste your API key")
-                Text("Generate a key at wallhaven.cc/settings/account", color = Color.Gray, fontSize = 11.sp)
-                Text("CONTENT CATEGORIES", color = Color.LightGray, fontSize = 12.sp)
-                CategoryToggle("SFW", sfw, onSfw)
-                CategoryToggle("Sketchy", sketchy, onSketchy)
-                CategoryToggle("NSFW  •  Wallhaven account/API key required", nsfw, onNsfw)
-            }
-            Column(Modifier.weight(0.75f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("DISPLAY", color = Color.LightGray, fontSize = 12.sp)
-                Text("Aspect ratio", color = Color.Gray)
-                Text("16:9  •  Fixed", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text("Minimum image size", color = Color.Gray)
-                Text("1920 × 1080", color = Color.White, fontSize = 20.sp)
-                Text("Preferred display", color = Color.Gray)
-                Text("3840 × 2160 (4K)", color = Color.White, fontSize = 20.sp)
-                Text("SECONDS PER IMAGE", color = Color.LightGray, fontSize = 12.sp)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = { onDuration((duration - 10).coerceAtLeast(10)) }) { Text("−") }
-                    Text("$duration sec", color = Color.White, fontSize = 20.sp)
-                    Button(onClick = { onDuration((duration + 10).coerceAtMost(3600)) }) { Text("+") }
-                }
-                Text("Use left/right on the remote to skip. OK shows image details. Back opens settings.", color = Color.Gray, fontSize = 12.sp)
-            }
-        }
-        if (error != null) Text(error, color = Color(0xFFFF8A80), fontSize = 13.sp)
-        Button(
-            onClick = onStart,
-            enabled = !loading && query.isNotBlank() && (sfw || sketchy || nsfw),
-            modifier = Modifier.width(240.dp).height(52.dp)
-        ) {
-            Text(if (loading) "SEARCHING…" else "START DISPLAY", fontSize = 15.sp)
-        }
-    }
-}
-
-@Composable
-private fun InputField(
-    value: String,
-    onValue: (String) -> Unit,
-    hint: String,
-    focusRequester: FocusRequester? = null
-) {
-    var isFocused by remember { mutableStateOf(false) }
-    BasicTextField(
-        value = value,
-        onValueChange = onValue,
-        singleLine = true,
-        textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
-        modifier = Modifier.fillMaxWidth()
-            .background(Color(0xFF242424), RoundedCornerShape(8.dp))
-            .border(
-                width = if (isFocused) 2.dp else 1.dp,
-                color = if (isFocused) Color(0xFF90CAF9) else Color(0xFF555555),
-                shape = RoundedCornerShape(8.dp)
-            )
-            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-            .onFocusChanged { isFocused = it.isFocused }
-            .padding(horizontal = 14.dp, vertical = 13.dp),
-        decorationBox = { inner ->
-            Box {
-                if (value.isEmpty()) Text(hint, color = Color.Gray, fontSize = 16.sp)
-                inner()
-            }
-        }
-    )
-}
-
-@Composable
-private fun CategoryToggle(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Checkbox(checked = checked, onCheckedChange = onChecked)
-        Text(label, color = Color.White, fontSize = 13.sp)
-    }
-}
+@Composable private fun Wizard(step:Step,onStep:(Step)->Unit,key:String,onKey:(String)->Unit,query:String,onQuery:(String)->Unit,sfw:Boolean,onSfw:(Boolean)->Unit,sketchy:Boolean,onSketchy:(Boolean)->Unit,nsfw:Boolean,onNsfw:(Boolean)->Unit,ratio:String,onRatio:(String)->Unit,minimum:String,onMinimum:(String)->Unit,preferred:String,onPreferred:(String)->Unit,duration:Int,onDuration:(Int)->Unit,loading:Boolean,error:String?,start:()->Unit){val focus=remember{FocusRequester()};var validation by remember(step){mutableStateOf<String?>(null)};LaunchedEffect(step){focus.requestFocus()};val pos=Step.entries.indexOf(step);fun next(){validation=when(step){Step.KEY->if(key.trim().length<8)"Enter a valid Wallhaven API key to continue."else null;Step.QUERY->if(query.trim().length<2)"Enter a search term of at least two characters."else null;Step.CATEGORIES->if(!sfw&&!sketchy&&!nsfw)"Select at least one content category."else null;else->null};if(validation==null)onStep(Step.entries[pos+1])};Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Navy,Color(0xFF15195A),Navy))).padding(72.dp,42.dp)){Column(Modifier.fillMaxSize().focusGroup(),verticalArrangement=Arrangement.spacedBy(20.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text("ARTFRAME",fontSize=31.sp,fontWeight=FontWeight.Black,letterSpacing=2.sp);Text("PERSONALISE YOUR GALLERY",color=Blue,fontSize=12.sp,letterSpacing=1.sp)};Text("SETUP ${pos+1} / 5",color=Muted,fontWeight=FontWeight.Bold)};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){Step.entries.forEachIndexed{i,_->Box(Modifier.weight(1f).height(7.dp).clip(RoundedCornerShape(99.dp)).background(if(i<=pos)Purple else Color(0xFF3E4675)))}};Surface(Modifier.weight(1f).fillMaxWidth(),color=Panel,shape=RoundedCornerShape(28.dp),border=BorderStroke(1.dp,Color(0xFF4C5994))){Column(Modifier.padding(38.dp),verticalArrangement=Arrangement.spacedBy(17.dp)){when(step){Step.KEY->Head("Connect Wallhaven","Add your personal API key. It is encrypted on this device."){Input(key,onKey,"Paste your API key",focus,true)};Step.QUERY->Head("Choose your art","What would you like ARTFRAME to find?"){Input(query,onQuery,"e.g. dark abstract",focus)};Step.CATEGORIES->Head("Choose content categories","Select the collections you want included."){Toggle("SFW","General audience artwork",sfw,onSfw,focus);Toggle("Sketchy","Mature themes",sketchy,onSketchy);Toggle("NSFW","Requires an eligible Wallhaven account",nsfw,onNsfw)};Step.DISPLAY->Head("Tune your display","Keep the original quality and image-selection filters."){Choices("Aspect ratio",listOf("16:9"),ratio,onRatio,focus);Choices("Minimum image size",listOf("1920x1080","2560x1440","3840x2160"),minimum,onMinimum);Choices("Preferred display",listOf("Auto (TV resolution)","1920x1080","3840x2160"),preferred,onPreferred);Choices("Seconds per image",listOf("30","60","120","300"),duration.toString(),{onDuration(it.toInt())})};Step.REVIEW->Head("Ready to display","Wallhaven is searched only when you select Start Display."){Review("Search",query);Review("Categories",listOfNotNull(if(sfw)"SFW"else null,if(sketchy)"Sketchy"else null,if(nsfw)"NSFW"else null).joinToString(" · "));Review("Display","$ratio  •  $minimum  •  $preferred");Review("Timing","$duration seconds per image")}};(validation?:error)?.let{Text(it,color=Error,fontWeight=FontWeight.Medium)}}};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){if(pos>0)TvButton("BACK",{onStep(Step.entries[pos-1])})else Spacer(Modifier.width(1.dp));TvButton(if(step==Step.REVIEW)if(loading)"SEARCHING…"else"START DISPLAY"else"NEXT",{if(step==Step.REVIEW)start()else next()},Modifier.then(if(step==Step.REVIEW)Modifier.focusRequester(focus)else Modifier),enabled=!loading)}}}}
+@Composable private fun Head(title:String,sub:String,body:@Composable ColumnScope.()->Unit){Text(title,fontSize=30.sp,fontWeight=FontWeight.Bold);Text(sub,color=Muted,fontSize=16.sp);Spacer(Modifier.height(2.dp));body()}
+@Composable private fun Review(k:String,v:String)=Row(Modifier.fillMaxWidth().padding(vertical=5.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(k,color=Muted);Text(v,fontWeight=FontWeight.Medium)}
+@Composable private fun Input(value:String,set:(String)->Unit,hint:String,focus:FocusRequester?=null,secret:Boolean=false){var focused by remember{mutableStateOf(false)};BasicTextField(value,set,singleLine=true,textStyle=TextStyle(Color.White,fontSize=19.sp),visualTransformation=if(secret)PasswordVisualTransformation()else VisualTransformation.None,modifier=Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF0D1332)).border(if(focused)3.dp else 1.dp,if(focused)Blue else Color(0xFF5968A8),RoundedCornerShape(14.dp)).then(if(focus!=null)Modifier.focusRequester(focus)else Modifier).onFocusChanged{focused=it.isFocused}.padding(18.dp),decorationBox={inner->Box{if(value.isBlank())Text(hint,color=Muted,fontSize=18.sp);inner()}})}
+@Composable private fun Toggle(title:String,sub:String,checked:Boolean,set:(Boolean)->Unit,focus:FocusRequester?=null){var focused by remember{mutableStateOf(false)};Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if(checked)Color(0xFF252C69)else Color(0xFF0D1332)).border(if(focused)3.dp else 1.dp,if(focused)Blue else Color(0xFF5968A8),RoundedCornerShape(14.dp)).then(if(focus!=null)Modifier.focusRequester(focus)else Modifier).onFocusChanged{focused=it.isFocused}.focusable().padding(16.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked,set);Column(Modifier.padding(start=12.dp)){Text(title,fontWeight=FontWeight.Bold,fontSize=17.sp);Text(sub,color=Muted,fontSize=13.sp)}}}
+@Composable private fun Choices(label:String,opts:List<String>,selected:String,set:(String)->Unit,focus:FocusRequester?=null){Column(verticalArrangement=Arrangement.spacedBy(7.dp)){Text(label,color=Muted,fontSize=14.sp);Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){opts.forEachIndexed{i,opt->TvButton(opt,{set(opt)},Modifier.then(if(i==0&&focus!=null)Modifier.focusRequester(focus)else Modifier),opt==selected)}}}}
+@Composable private fun TvButton(label:String,click:()->Unit,modifier:Modifier=Modifier,selected:Boolean=false,enabled:Boolean=true){var focused by remember{mutableStateOf(false)};Button(onClick=click,modifier=modifier.height(54.dp).onFocusChanged{focused=it.isFocused}.border(if(focused)3.dp else 0.dp,Blue,RoundedCornerShape(14.dp)),enabled=enabled,colors=ButtonDefaults.buttonColors(containerColor=if(selected)Purple else Color(0xFF2C356B),contentColor=Color.White,disabledContainerColor=Color(0xFF3B4263)),shape=RoundedCornerShape(14.dp),contentPadding=PaddingValues(horizontal=22.dp)){Text(label,fontSize=15.sp,fontWeight=FontWeight.Bold)}}

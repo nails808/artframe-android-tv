@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "cc.wallhaven.artframe"
     compileSdk = 36
+    buildToolsVersion = "36.0.0"
 
     defaultConfig {
         applicationId = "cc.wallhaven.artframe"

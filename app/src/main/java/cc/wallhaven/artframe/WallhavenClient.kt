@@ -68,7 +68,7 @@ class WallhavenClient {
                     val ratio = item.optString("ratio").toDoubleOrNull() ?: width.toDouble() / height
                     // Keep images close to 16:9 and large enough for a useful TV presentation.
                     val ratioError = abs(ratio - (16.0 / 9.0))
-                    if (ratioError > 0.025 || width < 1920 || height < 1080) continue
+                    if (ratioError > 0.025 || width < targetWidth || height < targetHeight) continue
                     val path = item.optString("path")
                     if (path.isBlank()) continue
                     add(
