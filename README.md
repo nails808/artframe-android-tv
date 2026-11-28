@@ -21,15 +21,14 @@ A full-screen digital art display for Android TV and Google TV, powered by the [
 
 1. Sign in to your Wallhaven account.
 2. Create an API key at https://wallhaven.cc/settings/account.
-3. Launch ARTFRAME and paste the API key into the settings screen.
+3. Launch WALLDROID and type/paste the API key into the settings screen.
 4. Enter a search term and select the desired content categories.
 5. Choose how many seconds each wallpaper should remain on screen, then select **Start Display**.
 
 ARTFRAME uses the API key in the `X-API-Key` HTTP header. It does not request or store your Wallhaven password. NSFW results remain subject to Wallhaven account permissions and API policy.
 
 ## Image matching
-
-ARTFRAME requests 16:9 results and applies a second client-side filter with a 0.025 aspect-ratio tolerance. It rejects images smaller than 1920×1080. On higher-resolution displays it prefers images close to the TV's physical resolution; if no matching 4K results are returned, it retries at 1920×1080.
+WALLDROID requests 16:9 results and applies a second client-side filter with a 0.025 aspect-ratio tolerance. It rejects images smaller than 1920×1080. On higher-resolution displays it prefers images close to the TV's physical resolution; if no matching 4K results are returned, it retries at 1920×1080.
 
 Images are displayed using a fit scale mode, preserving their original proportions without distortion or cropping.
 
