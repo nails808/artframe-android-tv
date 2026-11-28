@@ -6,6 +6,7 @@ A full-screen digital art display for Android TV and Google TV, powered by the [
 
 - Search Wallhaven by any user-entered term.
 - Choose SFW, Sketchy and/or NSFW content categories.
+
 - Authenticate API requests with a Wallhaven API key.
 - Retrieve original image files, not thumbnail previews.
 - Fixed 16:9 presentation with aspect-ratio filtering; images are never stretched.
@@ -32,28 +33,8 @@ ARTFRAME requests 16:9 results and applies a second client-side filter with a 0.
 
 Images are displayed using a fit scale mode, preserving their original proportions without distortion or cropping.
 
-## Build
 
-Requirements:
-
-- Android Studio
-- Android SDK Platform 36
-- JDK 17
-- Gradle 8.13
-
-Build from the repository root:
-
-```bash
-gradle assembleDebug
-gradle assembleRelease
-```
-
-The APKs are written to:
-
-- `app/build/outputs/apk/debug/app-debug.apk`
-- `app/build/outputs/apk/release/app-release-unsigned.apk`
-
-The GitHub Actions workflow builds both variants on pushes to the application/build files and on manual dispatch. APKs are uploaded as a workflow artifact. Sign the release APK with your own release keystore before distribution.
+<img width="1672" height="941" alt="ARTFRAME Android TV Setup Storyboard" src="https://github.com/user-attachments/assets/b399ca6d-4fe6-44ac-96ec-8c1f4547457b" />
 
 ## Remote controls
 
@@ -61,8 +42,6 @@ The GitHub Actions workflow builds both variants on pushes to the application/bu
 - **OK / Enter:** show or hide image details.
 - **Back:** return to settings.
 - **Menu / Settings:** open settings.
-
-## Project details
 
 - Package: `cc.wallhaven.artframe`
 - Minimum Android version: Android 6.0 (API 23)
